@@ -30,7 +30,8 @@ module Telegraph
       @stream.write [message_string.length].pack("N") + message_string
     end
 
-    def next_message
+    def next_message(options = {:timeout => 0})
+      raise NoMessageAvailable unless IO.select [@stream], nil, nil, options[:timeout]
       size = @stream.read(4).unpack("N")[0]
       message = @stream.read(size)
       return Marshal.load(message)
@@ -48,12 +49,9 @@ module Telegraph
       @socket = socket
     end
 
-    def next_message
-      client = @socket.accept
-      size = client.read(4).unpack("N")[0]
-      debug { "Operator#next_message: message size is #{size}" }
-      message = client.read(size.to_i)
-      return Marshal.load(message), Wire.new(client)
+    def next_message(options = {:timeout => 0})
+      wire = Wire.new(@socket.accept)
+      return wire.next_message(options), wire
     end
   end
 
@@ -72,5 +70,7 @@ module Telegraph
       @value = value
     end
   end
+
+  class NoMessageAvailable < Exception; end
 end
 
