@@ -2,6 +2,8 @@ module Telegraph
   class Wire
     include Logging
 
+    attr_reader :stream
+
     def self.connect(host, port)
       new TCPSocket.new(host, port)
     end
@@ -18,8 +20,9 @@ module Telegraph
 
     def next_message(options = {:timeout => 0})
       raise NoMessageAvailable unless IO.select [@stream], nil, nil, options[:timeout]
-      size = @stream.read(4).unpack("N")[0]
-      message = @stream.read(size)
+      size = @stream.read(4)
+      raise "connection closed" unless size
+      message = @stream.read(size.unpack("N")[0])
       return Marshal.load(message)
     end
   end

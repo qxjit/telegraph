@@ -17,9 +17,10 @@ module Telegraph
                 wire.send_message Pong.new(message.value + 1)
               end
             rescue NoMessageAvailable
-              break
+              retry
             end
           end
+          operator.shutdown
         end
         sleep 0.25
       end
@@ -45,6 +46,26 @@ module Telegraph
         assert_equal 4, wire.next_message(:timeout => 0.25).value
         assert_equal 6, wire.next_message(:timeout => 0.25).value
         assert_equal 8, wire.next_message(:timeout => 0.25).value
+      end
+
+      should "be able to handle multiple concurrent open wires" do
+        threads = []
+        100.times do |thread_i|
+          threads << Thread.new do
+            wire = Wire.connect("localhost", 3346)
+            100.times do |pass_j|
+              wire.send_message Ping.new(thread_i * 1000 + pass_j)
+              Thread.pass
+              begin
+                assert_equal(thread_i * 1000 + pass_j + 1, wire.next_message(:timeout => 0.25).value)
+              rescue NoMessageAvailable
+                retry
+              end
+              Thread.pass
+            end
+          end
+        end
+        threads.each {|t| t.join}
       end
 
       should "raise NoMessageAvailable if no message is available within timeout" do
