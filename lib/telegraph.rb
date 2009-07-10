@@ -50,8 +50,8 @@ module Telegraph
     end
 
     def next_message(options = {:timeout => 0})
-      wire = Wire.new(@socket.accept)
-      return wire.next_message(options), wire
+      @wire ||= Wire.new(@socket.accept)
+      return @wire.next_message(options), @wire
     end
   end
 
