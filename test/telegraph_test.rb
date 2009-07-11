@@ -109,6 +109,7 @@ module Telegraph
         wire.send_message :die
         sleep 0.25
         assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+        assert_equal true, wire.closed?
       end
 
       should "raise LineDead on next_message call to wire if operator was killed by another" do
@@ -116,6 +117,7 @@ module Telegraph
         Process.kill "TERM", @operator_pid
         sleep 0.25
         assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+        assert_equal true, wire.closed?
       end
 
       should "raise LineDead on next_message if operator was cleanly shutdown" do
@@ -123,6 +125,7 @@ module Telegraph
         wire.send_message :shutdown
         sleep 0.25
         assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+        assert_equal true, wire.closed?
       end
 
       should "raise LineDead if wire was closed by server" do
@@ -131,6 +134,7 @@ module Telegraph
           wire.send_message :closeme
           sleep 0.25
           assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+          assert_equal true, wire.closed?
         end
       end
 
@@ -138,6 +142,7 @@ module Telegraph
         wire = Wire.connect("localhost", 3346)
         wire.close
         assert_raises(LineDead) { wire.next_message(:timeout => 1) }
+        assert_equal true, wire.closed?
       end
     end
   end

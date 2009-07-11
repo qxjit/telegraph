@@ -17,6 +17,10 @@ module Telegraph
       @stream.close
     end
 
+    def closed?
+      @stream.closed?
+    end
+
     def send_message(message)
       message_string = Marshal.dump(message)
       debug { "sending message of size #{message_string.length}"}
@@ -24,15 +28,20 @@ module Telegraph
     end
 
     def next_message(options = {:timeout => 0})
-      raise NoMessageAvailable unless IO.select [@stream], nil, nil, options[:timeout]
-      size = @stream.read(4)
-      raise LineDead, "connection closed" unless size
-      message_string = @stream.read(size.unpack("N")[0])
-      debug { "read message of size #{message_string.length}"}
-      raise LineDead, "connection closed" unless message_string
-      return Marshal.load(message_string)
-    rescue IOError, Errno::ECONNRESET => e
-      raise LineDead, e.message
+      begin
+        raise NoMessageAvailable unless IO.select [@stream], nil, nil, options[:timeout]
+        size = @stream.read(4)
+        raise LineDead, "connection closed" unless size
+        message_string = @stream.read(size.unpack("N")[0])
+        debug { "read message of size #{message_string.length}" }
+        raise LineDead, "connection closed" unless message_string
+        return Marshal.load(message_string)
+      rescue IOError, Errno::ECONNRESET => e
+        raise LineDead, e.message
+      end
+    rescue LineDead
+      close rescue nil
+      raise
     end
   end
 end
