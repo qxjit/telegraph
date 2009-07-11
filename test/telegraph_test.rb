@@ -12,7 +12,7 @@ module Telegraph
           operator = Operator.listen("localhost", 3346)
           loop do
             begin
-              message, wire = operator.next_message :timeout => 0.25
+              message, wire = operator.next_message :timeout => 0.1
               if message.is_a?(Ping)
                 wire.send_message Pong.new(message.value + 1)
               end
@@ -71,6 +71,73 @@ module Telegraph
       should "raise NoMessageAvailable if no message is available within timeout" do
         wire = Wire.connect("localhost", 3346)
         assert_raises(NoMessageAvailable) { wire.next_message(:timeout => 0) }
+      end
+    end
+
+    context "when the operator dies" do
+      setup do
+        @operator_pid = fork do
+          operator = Operator.listen("localhost", 3346)
+          begin
+            loop do
+              begin
+                message, wire = operator.next_message :timeout => 0.1
+                case message
+                when :die then exit!
+                when :closeme then wire.close
+                when :shutdown then
+                  operator.shutdown 
+                  break 
+                end
+              rescue NoMessageAvailable
+                retry
+              end
+            end
+          rescue Interrupt
+          end
+        end
+        sleep 0.25
+      end
+
+      teardown do
+        Process.kill "TERM", @operator_pid
+        Process.wait @operator_pid
+      end
+
+      should "raise LineDead on next_message call to wire if operator killed itself" do
+        wire = Wire.connect("localhost", 3346)
+        wire.send_message :die
+        sleep 0.25
+        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+      end
+
+      should "raise LineDead on next_message call to wire if operator was killed by another" do
+        wire = Wire.connect("localhost", 3346)
+        Process.kill "TERM", @operator_pid
+        sleep 0.25
+        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+      end
+
+      should "raise LineDead on next_message if operator was cleanly shutdown" do
+        wire = Wire.connect("localhost", 3346)
+        wire.send_message :shutdown
+        sleep 0.25
+        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+      end
+
+      should "raise LineDead if wire was closed by server" do
+        10.times do |i|
+          wire = Wire.connect("localhost", 3346)
+          wire.send_message :closeme
+          sleep 0.25
+          assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+        end
+      end
+
+      should "raise LineDead if wire was closed locally" do
+        wire = Wire.connect("localhost", 3346)
+        wire.close
+        assert_raises(LineDead) { wire.next_message(:timeout => 1) }
       end
     end
   end

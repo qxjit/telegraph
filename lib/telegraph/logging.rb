@@ -3,12 +3,18 @@ require 'logger'
 module Telegraph
   module Logging
     def self.logger
-      @logger ||= Logger.new($stdout)
+      @logger ||= begin
+        l = Logger.new($stdout)
+        l.level = Logger::INFO
+        l.formatter = proc do |sev, time, progmane, msg|
+          "[#{time.strftime "%T"}] #{msg}\n"
+        end
+        l
+      end
     end
-    logger.level = Logger::INFO
 
-    def debug(&block)
-      Logging.logger.debug &block
+    def debug
+      Logging.logger.debug { "#{self.class}: #{yield}" }
     end
   end
 end

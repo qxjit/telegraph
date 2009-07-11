@@ -20,6 +20,7 @@ module Telegraph
     end
   end
 
-  class NoMessageAvailable < Exception; end
+  class NoMessageAvailable < StandardError; end
+  class LineDead < StandardError; end
 end
 
