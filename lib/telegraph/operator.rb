@@ -19,6 +19,10 @@ module Telegraph
       end
     end
 
+    def port
+      @socket.addr[1]
+    end
+
     def shutdown
       debug { "Shutting down" }
       @socket.close
