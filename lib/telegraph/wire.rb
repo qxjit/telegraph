@@ -25,6 +25,9 @@ module Telegraph
       message_string = Marshal.dump(message)
       debug { "sending message of size #{message_string.length}"}
       @stream.write [message_string.length].pack("N") + message_string
+    rescue IOError, Errno::EPIPE, Errno::ECONNRESET => e
+      close rescue nil
+      raise LineDead, e.message
     end
 
     def next_message(options = {:timeout => 0})

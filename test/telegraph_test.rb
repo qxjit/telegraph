@@ -9,10 +9,11 @@ module Telegraph
     context "when talking to an operator" do
       setup do
         @operator_pid = fork do
-          operator = Operator.listen("localhost", 3346)
+          switchboard = Switchboard.new
+          operator = Operator.listen("localhost", 3346, switchboard)
           loop do
             begin
-              message, wire = operator.next_message :timeout => 0.1
+              message, wire = switchboard.next_message :timeout => 0.1
               if message.is_a?(Ping)
                 wire.send_message Pong.new(message.value + 1)
               end
@@ -74,26 +75,24 @@ module Telegraph
       end
     end
 
-    context "when the operator dies" do
+    context "when handling errors" do
       setup do
         @operator_pid = fork do
-          operator = Operator.listen("localhost", 3346)
-          begin
-            loop do
-              begin
-                message, wire = operator.next_message :timeout => 0.1
-                case message
-                when :die then exit!
-                when :closeme then wire.close
-                when :shutdown then
-                  operator.shutdown 
-                  break 
-                end
-              rescue NoMessageAvailable
-                retry
+          switchboard = Switchboard.new
+          operator = Operator.listen("localhost", 3346, switchboard)
+          loop do
+            begin
+              message, wire = switchboard.next_message :timeout => 0.1
+              case message
+              when :die then exit!
+              when :closeme then wire.close
+              when :shutdown then
+                operator.shutdown 
+                break 
               end
+            rescue NoMessageAvailable
+              retry
             end
-          rescue Interrupt
           end
         end
         sleep 0.25
@@ -104,45 +103,82 @@ module Telegraph
         Process.wait @operator_pid
       end
 
-      should "raise LineDead on next_message call to wire if operator killed itself" do
-        wire = Wire.connect("localhost", 3346)
-        wire.send_message :die
-        sleep 0.25
-        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
-        assert_equal true, wire.closed?
-      end
-
-      should "raise LineDead on next_message call to wire if operator was killed by another" do
-        wire = Wire.connect("localhost", 3346)
-        Process.kill "TERM", @operator_pid
-        sleep 0.25
-        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
-        assert_equal true, wire.closed?
-      end
-
-      should "raise LineDead on next_message if operator was cleanly shutdown" do
-        wire = Wire.connect("localhost", 3346)
-        wire.send_message :shutdown
-        sleep 0.25
-        assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
-        assert_equal true, wire.closed?
-      end
-
-      should "raise LineDead if wire was closed by server" do
-        10.times do |i|
+      context "next_message" do
+        should "raise LineDead on call to wire if operator killed itself" do
           wire = Wire.connect("localhost", 3346)
-          wire.send_message :closeme
-          sleep 0.25
+          wire.send_message :die
           assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on call to wire if operator was killed by another" do
+          wire = Wire.connect("localhost", 3346)
+          Process.kill "KILL", @operator_pid
+          assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on if operator was cleanly shutdown" do
+          wire = Wire.connect("localhost", 3346)
+          wire.send_message :shutdown
+          assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on if wire was closed by server" do
+          10.times do |i|
+            wire = Wire.connect("localhost", 3346)
+            wire.send_message :closeme
+            assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
+            assert_equal true, wire.closed?
+          end
+        end
+
+        should "raise LineDead on if wire was closed locally" do
+          wire = Wire.connect("localhost", 3346)
+          wire.close
+          assert_raises(LineDead) { wire.next_message(:timeout => 1) }
           assert_equal true, wire.closed?
         end
       end
 
-      should "raise LineDead if wire was closed locally" do
-        wire = Wire.connect("localhost", 3346)
-        wire.close
-        assert_raises(LineDead) { wire.next_message(:timeout => 1) }
-        assert_equal true, wire.closed?
+      context "send_message" do
+        should "raise LineDead on call to wire if operator killed itself" do
+          wire = Wire.connect("localhost", 3346)
+          wire.send_message :die
+          assert_raises(LineDead) { loop { wire.send_message(:foo) } }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on call to wire if operator was killed by another" do
+          wire = Wire.connect("localhost", 3346)
+          Process.kill "KILL", @operator_pid
+          assert_raises(LineDead) { loop { wire.send_message(:foo) } }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on if operator was cleanly shutdown" do
+          wire = Wire.connect("localhost", 3346)
+          wire.send_message :shutdown
+          assert_raises(LineDead) { loop { wire.send_message(:foo) } }
+          assert_equal true, wire.closed?
+        end
+
+        should "raise LineDead on if wire was closed by server" do
+          10.times do |i|
+            wire = Wire.connect("localhost", 3346)
+            wire.send_message :closeme
+            assert_raises(LineDead) { loop { wire.send_message(:foo) } }
+            assert_equal true, wire.closed?
+          end
+        end
+
+        should "raise LineDead on if wire was closed locally" do
+          wire = Wire.connect("localhost", 3346)
+          wire.close
+          assert_raises(LineDead) { loop { wire.send_message(:foo) } }
+          assert_equal true, wire.closed?
+        end
       end
     end
   end
