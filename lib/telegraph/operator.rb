@@ -14,7 +14,7 @@ module Telegraph
         loop do
           client = @socket.accept
           debug { "Accepted connection: #{client.inspect}" }
-          switchboard.using_wires {|w| w << Wire.new(client)}
+          switchboard.add_wire Wire.new(client)
         end
       end
     end
