@@ -22,6 +22,10 @@ module Telegraph
       using_wires {|w| w << wire }
     end
 
+    def close_all_wires
+      using_wires {|w| w.each { |wire| wire.close } }
+    end
+
     def using_wires
       @wires ||= []
       @wires_mutex ||= Mutex.new

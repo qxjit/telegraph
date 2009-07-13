@@ -10,11 +10,12 @@ module Telegraph
 
     def initialize(socket, switchboard)
       @socket = socket
+      @switchboard = switchboard
       @accept_thread = Thread.new do
         loop do
           client = @socket.accept
           debug { "Accepted connection: #{client.inspect}" }
-          switchboard.add_wire Wire.new(client)
+          @switchboard.add_wire Wire.new(client)
         end
       end
     end
@@ -26,6 +27,7 @@ module Telegraph
     def shutdown
       debug { "Shutting down" }
       @socket.close
+      @switchboard.close_all_wires
     end
   end
 end

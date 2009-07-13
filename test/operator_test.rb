@@ -16,5 +16,23 @@ module Telegraph
         end
       end
     end
+
+    context "shutdown" do
+      should "shutdown all connections on the switchboard" do
+        begin
+          switchboard = Switchboard.new
+          operator = Operator.listen("localhost", 9999, switchboard)
+          wire = Wire.connect("localhost", 9999)
+        ensure
+          operator.shutdown if operator
+        end
+
+        switchboard.using_wires do |wires|
+          wires.each do |w|
+            assert_equal true, wire.closed?
+          end
+        end 
+      end
+    end
   end
 end
