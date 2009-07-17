@@ -29,7 +29,7 @@ module Telegraph
 
         switchboard.using_wires do |wires|
           wires.each do |w|
-            assert_equal true, wire.closed?
+            assert_equal true, w.closed?
           end
         end 
       end

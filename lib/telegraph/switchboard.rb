@@ -23,7 +23,8 @@ module Telegraph
     end
 
     def close_all_wires
-      using_wires {|w| w.each { |wire| wire.close } }
+      debug { "Closing all wires" }
+      using_wires {|w| w.each { |wire| wire.close rescue nil } }
     end
 
     def using_wires
