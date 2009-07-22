@@ -5,7 +5,13 @@ module Telegraph
     attr_reader :stream
 
     def self.connect(host, port)
-      new TCPSocket.new(host, port)
+      wire = new TCPSocket.new(host, port)
+      return wire unless block_given?
+      begin
+        yield wire
+      ensure
+        wire.close
+      end
     end
 
     def initialize(stream)
@@ -28,6 +34,12 @@ module Telegraph
     rescue IOError, Errno::EPIPE, Errno::ECONNRESET => e
       close rescue nil
       raise LineDead, e.message
+    end
+
+    def process_messages(options = {:timeout => 0})
+      yield next_message(options) while true
+    rescue NoMessageAvailable
+      retry
     end
 
     def next_message(options = {:timeout => 0})

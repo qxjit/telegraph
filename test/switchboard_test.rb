@@ -16,6 +16,33 @@ module Telegraph
       end
     end
 
+    context "process_messages" do
+      setup do
+        @operator = Operator.listen "localhost", 9999
+      end
+
+      teardown do
+        @operator.shutdown if @operator
+      end
+
+      should "retrieve messages, retrying on NoMessageAvailable" do
+        messages = []
+        t = Thread.new do 
+          @operator.switchboard.process_messages(:timeout => 0.1) do |message, wire|
+            messages << message
+            break if messages.size >= 2
+          end
+        end
+
+        Wire.connect("localhost", 9999) { |w| w.send_message "hello 1" }
+        Wire.connect("localhost", 9999) { |w| w.send_message "hello 2" }
+
+        t.join
+
+        assert_equal ["hello 1", "hello 2"], messages
+      end
+    end
+
     context "any_live_wires?" do
       setup do
         @switchboard = Switchboard.new

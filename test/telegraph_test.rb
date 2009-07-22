@@ -9,17 +9,9 @@ module Telegraph
     context "when talking to an operator" do
       setup do
         @operator_pid = fork do
-          switchboard = Switchboard.new
-          operator = Operator.listen("localhost", 3346, switchboard)
-          loop do
-            begin
-              message, wire = switchboard.next_message :timeout => 0.1
-              if message.is_a?(Ping)
-                wire.send_message Pong.new(message.value + 1)
-              end
-            rescue NoMessageAvailable
-              retry
-            end
+          operator = Operator.listen("localhost", 3346)
+          operator.switchboard.process_messages(:timout => 0.1) do |message, wire|
+            wire.send_message Pong.new(message.value + 1) if message.is_a?(Ping)
           end
           operator.shutdown
         end
@@ -78,20 +70,14 @@ module Telegraph
     context "when handling errors" do
       setup do
         @operator_pid = fork do
-          switchboard = Switchboard.new
-          operator = Operator.listen("localhost", 3346, switchboard)
-          loop do
-            begin
-              message, wire = switchboard.next_message :timeout => 0.1
-              case message
-              when :die then exit!
-              when :closeme then wire.close
-              when :shutdown then
-                operator.shutdown 
-                break 
-              end
-            rescue NoMessageAvailable
-              retry
+          operator = Operator.listen("localhost", 3346)
+          operator.switchboard.process_messages(:tiemout => 0.1) do |message, wire|
+            case message
+            when :die then exit!
+            when :closeme then wire.close
+            when :shutdown then
+              operator.shutdown 
+              break 
             end
           end
         end

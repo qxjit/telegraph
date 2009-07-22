@@ -34,5 +34,40 @@ module Telegraph
         t.join
       end
     end
+
+    context "process_messages" do
+      setup do
+        @operator = Operator.listen "localhost", 9999
+      end
+
+      teardown do
+        @operator.shutdown if @operator
+      end
+
+      should "retrieve messages, retrying on NoMessageAvailable" do
+        messages = []
+        t = Thread.new do 
+          Wire.connect("localhost", 9999) do |wire|
+            wire.send_message :ready
+            wire.process_messages(:timeout => 0.1) do |message|
+              messages << message
+              break if messages.size >= 2
+            end
+          end
+        end
+
+        @operator.switchboard.process_messages(:timeout => 0.1) do |message, wire|
+          assert_equal :ready, message
+          wire.send_message "hello 1"
+          wire.send_message "hello 2"
+          break
+        end
+
+        t.join
+
+        assert_equal ["hello 1", "hello 2"], messages
+      end
+    end
+
   end
 end
