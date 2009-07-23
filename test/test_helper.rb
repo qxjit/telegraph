@@ -4,3 +4,5 @@ require 'telegraph'
 require 'rubygems'
 require 'shoulda'
 require 'timeout'
+
+require File.dirname(__FILE__) + "/two_way_pipe"
