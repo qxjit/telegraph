@@ -15,6 +15,7 @@ module Telegraph
     end
 
     def initialize(stream)
+      @sequence = AckSequence.new
       @stream = stream
     end
 
@@ -27,10 +28,8 @@ module Telegraph
       @stream.closed?
     end
 
-    def send_message(message)
-      message_string = Marshal.dump(message)
-      debug { "send #{message_string[4..20]}... (#{message_string.length} bytes)" }
-      @stream.write [message_string.length].pack("N") + message_string
+    def send_message(body)
+      Message.new(body, @sequence.next, nil).write stream
     rescue IOError, Errno::EPIPE, Errno::ECONNRESET => e
       close rescue nil
       raise LineDead, e.message
@@ -45,12 +44,7 @@ module Telegraph
     def next_message(options = {:timeout => 0})
       begin
         raise NoMessageAvailable unless IO.select [@stream], nil, nil, options[:timeout]
-        size = @stream.read(4)
-        raise LineDead, "connection closed" unless size
-        message_string = @stream.read(size.unpack("N")[0])
-        debug { "read #{message_string[4..20]}... (#{message_string.length} bytes)" }
-        raise LineDead, "connection closed" unless message_string
-        return Marshal.load(message_string)
+        return Message.read(@stream)
       rescue IOError, Errno::ECONNRESET => e
         raise LineDead, e.message
       end

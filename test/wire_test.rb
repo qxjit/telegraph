@@ -1,8 +1,4 @@
-$LOAD_PATH << File.dirname(__FILE__) + "/../lib"
-require 'test/unit'
-require 'telegraph'
-require 'rubygems'
-require 'shoulda'
+require File.dirname(__FILE__) + "/test_helper"
 
 module Telegraph
   class WireTest < Test::Unit::TestCase
@@ -57,7 +53,7 @@ module Telegraph
         end
 
         @operator.switchboard.process_messages(:timeout => 0.1) do |message, wire|
-          assert_equal :ready, message
+          assert_equal :ready, message.body
           wire.send_message "hello 1"
           wire.send_message "hello 2"
           break
@@ -65,7 +61,7 @@ module Telegraph
 
         t.join
 
-        assert_equal ["hello 1", "hello 2"], messages
+        assert_equal ["hello 1", "hello 2"], messages.map {|m| m.body}
       end
     end
 

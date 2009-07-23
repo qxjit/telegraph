@@ -1,8 +1,4 @@
-$LOAD_PATH << File.dirname(__FILE__) + "/../lib"
-require 'test/unit'
-require 'telegraph'
-require 'rubygems'
-require 'shoulda'
+require File.dirname(__FILE__) + "/test_helper"
 
 module Telegraph
   class OperatorTest < Test::Unit::TestCase
