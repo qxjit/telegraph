@@ -6,8 +6,9 @@ module Telegraph
       setup do
         @operator_pid = fork do
           operator = Operator.listen("localhost", 3346)
-          operator.switchboard.process_messages(:timout => 0.1) do |message, wire|
+          operator.switchboard.process_messages(:timeout => 0.1) do |message, wire|
             wire.send_message Pong.new(message.body.value + 1) if message.body.is_a?(Ping)
+            break if message.body == :test_done
           end
           operator.shutdown
         end
@@ -15,7 +16,9 @@ module Telegraph
       end
 
       teardown do
-        Process.kill "TERM", @operator_pid
+        Wire.connect("localhost", 3346) do |wire|
+          wire.send_message :test_done
+        end
         Process.wait @operator_pid
       end
 
@@ -39,22 +42,25 @@ module Telegraph
 
       should "be able to handle multiple concurrent open wires" do
         threads = []
+
         100.times do |thread_i|
           threads << Thread.new do
-            wire = Wire.connect("localhost", 3346)
-            100.times do |pass_j|
-              wire.send_message Ping.new(thread_i * 1000 + pass_j)
-              Thread.pass
-              begin
-                assert_equal(thread_i * 1000 + pass_j + 1, wire.next_message(:timeout => 0.25).body.value)
-              rescue NoMessageAvailable
-                retry
+            Wire.connect("localhost", 3346) do |wire|
+              100.times do |pass_j|
+                wire.send_message Ping.new(thread_i * 1000 + pass_j)
+                Thread.pass
+                begin
+                  value = wire.next_message(:timeout => 0.25).body.value
+                  Thread.exclusive { assert_equal(thread_i * 1000 + pass_j + 1, value) }
+                rescue NoMessageAvailable
+                  retry
+                end
+                Thread.pass
               end
-              Thread.pass
             end
           end
         end
-        Timeout.timeout(10) { threads.each {|t| t.join} }
+        Timeout.timeout(15) { threads.each {|t| t.join} }
       end
 
       should "raise NoMessageAvailable if no message is available within timeout" do
@@ -81,7 +87,7 @@ module Telegraph
       end
 
       teardown do
-        Process.kill "TERM", @operator_pid
+        Process.kill "KILL", @operator_pid
         Process.wait @operator_pid
       end
 

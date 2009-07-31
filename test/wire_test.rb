@@ -49,6 +49,23 @@ module Telegraph
         assert_equal ["hello 1", "hello 2"], messages.map {|m| m.body}
       end
     end
+    
+    context "close" do
+      should "close the underlying stream" do
+        stream_1, stream_2 = TwoWayPipe.pair
+        wire = Wire.new(stream_1)
+        wire.close
+        assert_equal true, stream_1.closed?
+      end
+
+      should "leave the stream closed if it's already closed" do
+        stream_1, stream_2 = TwoWayPipe.pair
+        wire = Wire.new(stream_1)
+        stream_1.close
+        wire.close
+        assert_equal true, stream_1.closed?
+      end
+    end
 
     context "ack" do
       should "track messages that need ack but have not received it" do

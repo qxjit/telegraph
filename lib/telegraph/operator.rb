@@ -14,6 +14,7 @@ module Telegraph
       @socket = socket
       @switchboard = switchboard
       @accept_thread = Thread.new do
+        @socket.listen 100
         loop do
           client = @socket.accept
           debug { "Accepted connection: #{client.inspect}" }

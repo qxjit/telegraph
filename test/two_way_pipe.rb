@@ -16,6 +16,10 @@ class TwoWayPipe
     @write.close
   end
 
+  def closed?
+    @read.closed?
+  end
+
   def to_io
     @read
   end

@@ -3,10 +3,17 @@ require File.dirname(__FILE__) + "/test_helper"
 module Telegraph
   class SwitchboardTest < Test::Unit::TestCase
     context "next_message" do
-      should "raise NoMessageAvailable immediately when there are no wires" do
+      should "raise NoMessageAvailable almost immediately when there are no wires" do
         switchboard = Switchboard.new
         assert_raises(NoMessageAvailable) do
           Timeout.timeout(0.1) { switchboard.next_message :timeout => 5 }
+        end
+      end
+
+      should "sleep for some small amount of time when there are no wires" do
+        switchboard = Switchboard.new
+        assert_raises(Timeout::Error) do
+          Timeout.timeout(0.0001) { switchboard.next_message :timeout => 5 }
         end
       end
     end
