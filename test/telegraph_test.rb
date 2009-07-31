@@ -109,6 +109,7 @@ module Telegraph
         should "raise LineDead on if operator was cleanly shutdown" do
           wire = Wire.connect("localhost", 3346)
           wire.send_message :shutdown
+          sleep 0.5 # let it shut down
           assert_raises(LineDead) { wire.next_message(:timeout => 0.25) }
           assert_equal true, wire.closed?
         end
